@@ -30,3 +30,25 @@ extract($vars);
     <?=$form->label('stripeElementsLivePrivateApiKey', t('Live Secret Key'))?>
     <input type="text" name="stripeElementsLivePrivateApiKey" value="<?=$stripeElementsLivePrivateApiKey?>" class="form-control">
 </div>
+
+
+<?=$form->label('webhook', t('Required Webhook'))?>
+<p><?= t('Within the Stripe Dashboard configure a Webhook endpoint for the following URL'); ?>:
+    <br /><a href="<?= \URL::to('/checkout/stripeelementsresponse'); ?>"><?= \URL::to('/checkout/stripeelementsresponse'); ?></a></p>
+<p><?= t('With the Events to send'); ?>:
+    <span class="label label-primary">payment_intent.succeeded</span>
+    <span class="label label-primary">charge.refunded</span>
+</p>
+
+<p><?= t('After creating the webhook, the Signing Secret can be found within webhook details page'); ?></p>
+
+<div class="form-group">
+    <?=$form->label('stripeElementsTestSigningSecretKey', t('Test Signing Secret Key'))?>
+    <input type="text" name="stripeElementsTestSigningSecretKey" value="<?=$stripeElementsTestSigningSecretKey?>" class="form-control">
+</div>
+
+
+<div class="form-group">
+    <?=$form->label('stripeElementsSigningSecretKey', t('Live Signing Secret Key'))?>
+    <input type="text" name="stripeElementsSigningSecretKey" value="<?=$stripeElementsSigningSecretKey?>" class="form-control">
+</div>

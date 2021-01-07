@@ -1,4 +1,5 @@
-<?php defined('C5_EXECUTE') or die("Access Denied.");
+<?php
+defined('C5_EXECUTE') or die("Access Denied.");
 extract($vars);
 ?>
 <input type="hidden" value="" name="stripeToken" id="stripeToken"/>
@@ -141,7 +142,36 @@ extract($vars);
                                     var payment_intent_id = result.paymentIntent.id
 
                                     $('#stripeToken').val(payment_intent_id)
-                                    form.submit()
+
+
+                                    $.ajax({
+                                        url: '<?= \URL::to('/checkout/stripeelementscomplete'); ?>',
+                                        type: 'post',
+                                        cache: false,
+                                        dataType: 'json',
+                                        data: 'stripeToken=' + payment_intent_id,
+                                        success: function (data) {
+
+                                            <?php
+                                            $app = \Concrete\Core\Support\Facade\Application::getFacadeApplication();
+                                            $request = $app->make(\Concrete\Core\Http\Request::class);
+                                            $referrer = $request->server->get('HTTP_REFERER');
+                                            $c = \Concrete\Core\Page\Page::getByPath(parse_url($referrer, PHP_URL_PATH));
+                                            $al = \Concrete\Core\Multilingual\Page\Section\Section::getBySectionOfSite($c);
+                                            $langpath = '';
+                                            if ($al !== null) {
+                                                $langpath = $al->getCollectionHandle();
+                                            }
+                                            $return = \Concrete\Core\Support\Facade\Url::to($langpath . '/checkout/complete');
+                                            ?>
+
+
+                                            if (data.error !== 1) {
+                                               window.location.href = '<?= $return; ?>';
+                                            }
+
+                                        }
+                                    });
                                 }
                             });
 

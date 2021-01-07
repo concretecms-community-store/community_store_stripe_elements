@@ -16,18 +16,6 @@ Download a 'release' zip of the add-on, unzip this to the packages folder of you
 
 Once installed, configure the payment method through the Settings/Payments dashboard section for 'Store'. 
 You will need to log into Stripe's Dashboard, and through the Developers section copy in test and live API Keys.
- 
-## Considerations
-Due to the transaction flow of this payment method, transactions are made and completed just _before_ orders are recorded.
-This means that if a customer closes their browser _right_ at the moment between a transaction completing and Community Store receiving the final request to place the order, there is a chance that a payment will be made without a corresponding order being created.
-This situation is considered very unlikely, but technically could occur. Other transaction flows used by other payment methods avoid this possibility.
-
-In the event that this situation occurs, full contacts details of the customer (name, email, phone, addresses) are stored on the transaction record within Stripe's dashboard, and can be reviewed for customer contacting/refunding purposes.
-
-It is also recommended leave enabled transaction notification emails, so that payments without corresponding order notifications can be noticed:
-https://support.stripe.com/questions/set-up-account-email-notifications
-
-Whilst very unlikely, if the possibility of the above situation occurring is concern to you, the recommendation would be to use the [Stripe Checkout](https://github.com/concrete5-community-store/community_store_stripe_checkout) payment method instead.
 
 
 ## Compared with Stripe Checkout

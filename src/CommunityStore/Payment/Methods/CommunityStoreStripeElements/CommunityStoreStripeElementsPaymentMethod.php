@@ -2,12 +2,11 @@
 namespace Concrete\Package\CommunityStoreStripeElements\Src\CommunityStore\Payment\Methods\CommunityStoreStripeElements;
 
 use Concrete\Core\Http\Request;
-use Concrete\Core\Support\Facade\Url;
 use Concrete\Core\Support\Facade\Config;
 use Concrete\Core\Support\Facade\Session;
 use Concrete\Core\Support\Facade\Application;
-use Concrete\Core\Multilingual\Page\Section\Section;
 use Concrete\Package\CommunityStore\Src\CommunityStore\Customer\Customer;
+use Concrete\Package\CommunityStore\Src\CommunityStore\Order\Order;
 use Concrete\Package\CommunityStore\Src\CommunityStore\Order\Order as StoreOrder;
 use Concrete\Package\CommunityStore\Src\CommunityStore\Utilities\Calculator as StoreCalculator;
 use Concrete\Package\CommunityStore\Src\CommunityStore\Utilities\Price as StorePrice;;
@@ -59,7 +58,8 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
         $this->set('stripeElementsLivePublicApiKey', Config::get('community_store_stripe_elements.livePublicApiKey'));
         $this->set('stripeElementsTestPrivateApiKey', Config::get('community_store_stripe_elements.testPrivateApiKey'));
         $this->set('stripeElementsLivePrivateApiKey', Config::get('community_store_stripe_elements.livePrivateApiKey'));
-
+        $this->set('stripeElementsSigningSecretKey', Config::get('community_store_stripe_elements.signingSecretKey'));
+        $this->set('stripeElementsTestSigningSecretKey', Config::get('community_store_stripe_elements.testSigningSecretKey'));
         $this->set('form', Application::getFacadeApplication()->make("helper/form"));
         $this->set('stripeElementsCurrencies', $this->getCurrencies());
     }
@@ -127,10 +127,24 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
         }
 
         if ($paymentIntent && $paymentIntent->id) {
-            return array('error'=>0, 'transactionReference'=> $stripeToken);
-        } else {
-            return array('error'=>1, 'errorMessage'=>t('Invalid Transaction'), 'transactionReference'=> false);
+
+            $orderID = Session::get('stripeOrderID');
+
+            if ($orderID) {
+                $order = Order::getByID($orderID);
+
+                if ($order) {
+                    $order->completeOrder($stripeToken, true);
+                    $order->updateStatus(StoreOrderStatus::getStartingStatus()->getHandle());
+                    Session::remove('stripeOrderID');
+                    echo json_encode(['error'=>0, 'transactionReference'=> $stripeToken]);
+                    exit();
+                }
+            }
         }
+
+        echo json_encode(['error'=>1, 'errorMessage'=>t('Invalid Transaction'), 'transactionReference'=> false]);
+        exit();
 
     }
 
@@ -146,6 +160,21 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
 
     public function createSession()
     {
+        $existing = Session::get('stripeOrderID');
+
+        if ($existing) {
+            $existingOrder = Order::getByID($existing);
+
+            if ($existingOrder && $existingOrder->getExternalPaymentRequested()) {
+                $existingOrder->remove();
+            }
+        }
+
+        $pm = StorePaymentMethod::getByHandle('community_store_stripe_elements');
+        $order = Order::add($pm, null, 'incomplete');
+
+        Session::set('stripeOrderID', $order->getOrderID());
+
         $mode = Config::get('community_store_stripe_elements.mode');
         $this->set('currency', Config::get('community_store_stripe_elements.currency'));
 
@@ -168,10 +197,8 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
             'amount' => $price * $currencyMultiplier,
             'currency' => $currency,
             'receipt_email' =>  $customer->getEmail(),
-            'metadata' => [t('Phone')=> $customer->getValue('billing_phone')]
+            'metadata' => [t('Phone')=> $customer->getValue('billing_phone'), 'Order' => $order->getOrderID()]
         ]);
-
-
 
         $return = [
             'client_secret'=>$paymentIntent->client_secret,
@@ -212,9 +239,85 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
 
     }
 
+
+    function chargeResponse() {
+
+        $mode = Config::get('community_store_stripe_elements.mode');
+
+        if ($mode == 'live') {
+            $secretKey = Config::get('community_store_stripe_elements.livePrivateApiKey');
+            $signingSecretKey = Config::get('community_store_stripe_elements.signingSecretKey');
+        } else {
+            $secretKey = Config::get('community_store_stripe_elements.testPrivateApiKey');
+            $signingSecretKey = Config::get('community_store_stripe_elements.testSigningSecretKey');
+        }
+
+
+        if ($secretKey && $signingSecretKey) {
+            \Stripe\Stripe::setApiKey($secretKey);
+
+            $payload = @file_get_contents('php://input');
+            $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'];
+            $event = null;
+
+            try {
+                $event = \Stripe\Webhook::constructEvent(
+                    $payload, $sig_header, $signingSecretKey
+                );
+            } catch (\UnexpectedValueException $e) {
+                // Invalid payload
+                http_response_code(400);
+                exit();
+            } catch (\Stripe\Error\SignatureVerification $e) {
+                // Invalid signature
+                http_response_code(400);
+                exit();
+            }
+
+            $success = false;
+
+            // Handle the checkout.session.completed event
+            if ($event->type == 'payment_intent.succeeded') {
+                $paymentIntent = $event->data->object;
+                $order = StoreOrder::getByID($paymentIntent->metadata->Order);
+
+                if ($order) {
+                    if ($order->getExternalPaymentRequested()) {
+                        $order->completeOrder($paymentIntent->id);
+                        $order->updateStatus(StoreOrderStatus::getStartingStatus()->getHandle());
+                        $success = true;
+                    }
+                }
+            }
+
+            // handle a refund
+            if ($event->type == 'charge.refunded') {
+                $session = $event->data->object;
+
+                $em = \Concrete\Core\Support\Facade\DatabaseORM::entityManager();
+                $order = $em->getRepository('\Concrete\Package\CommunityStore\Src\CommunityStore\Order\Order')->findOneBy(['transactionReference' => $session->payment_intent]);
+
+                if ($order) {
+                    $order->setRefunded(new \DateTime());
+                    $order->setRefundReason($session->refunds->data->reason);
+                    $order->save();
+                    $success = true;
+                }
+            }
+
+            if ($success) {
+                http_response_code(200);
+            } else {
+                http_response_code(400);
+            }
+        } else {
+            http_response_code(400);
+        }
+    }
+
     public function isExternal()
     {
-        return false;
+        return true;
     }
 }
 
