@@ -37,6 +37,10 @@ class Controller extends Package
 
     public function install()
     {
+        if (!@include(__DIR__ . '/vendor/autoload.php')) {
+            throw new ErrorException(t('Third party libraries not installed. Use a release version of this add-on with libraries pre-installed, or run composer install against the package folder.'));
+        }
+
         $pkg = parent::install();
         $pm = new PaymentMethod();
         $pm->add('community_store_stripe_elements','Stripe Elements',$pkg);
