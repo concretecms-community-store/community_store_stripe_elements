@@ -1,5 +1,5 @@
 # Community Store Stripe Elements
-Stripe Elements payment add-on for Community Store for concrete5
+Stripe Elements payment add-on for Community Store for Concrete CMS
 
 This payment method directly embeds Stripe credit card processing (using Stripe Elements) into Community Store's checkout flow.
 Customers paying with this method stay on the checkout page to complete their transaction, however credit card details are only ever directly set to Stripe's servers.
@@ -12,7 +12,7 @@ This is a Strong Customer Authentication (SCA) compliant payment method.
 ## Setup
 Install Community Store First.
 
-Download a 'release' zip of the add-on, unzip this to the packages folder of your concrete5 install (alongside the community_store folder) and install via the dashboard.
+Download a 'release' zip of the add-on, unzip this to the packages folder of your Concrete CMS install (alongside the community_store folder) and install via the dashboard.
 
 Once installed, configure the payment method through the Settings/Payments dashboard section for 'Store'. 
 You will need to log into Stripe's Dashboard, and through the Developers section copy in test and live API Keys.
@@ -22,7 +22,7 @@ You will need to log into Stripe's Dashboard, and through the Developers section
 
 This method is in contrast to [Stripe Checkout](https://github.com/concrete5-community-store/community_store_stripe_checkout), which redirects users to Stripe's external payment page, with the customer returning to the concrete5 site after payment has been made.
 
-A benefit of Stripe Checkout over this payment method is Apple Pay and Google Pay can be easily enabled, without having to change the payment method on the concrete5 site. 
+A benefit of Stripe Checkout over this payment method is Apple Pay and Google Pay can be easily enabled, without having to change the payment method on the Concrete CMS site. 
 Arguably, customers may also trust entering their credit card details into a branded Stripe checkout, rather than directly into a website. 
 
 The main benefit of this Stripe Elements payment method is the simplicity of the credit card field/form, as that a customer never leaves the website to complete a transaction.

@@ -133,7 +133,7 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
             if ($orderID) {
                 $order = Order::getByID($orderID);
 
-                if ($order) {
+                if ($order && !$order->getTransactionReference()) {
                     $order->completeOrder($stripeToken, true);
                     $order->updateStatus(StoreOrderStatus::getStartingStatus()->getHandle());
                     Session::remove('stripeOrderID');
@@ -281,7 +281,7 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
                 $paymentIntent = $event->data->object;
                 $order = StoreOrder::getByID($paymentIntent->metadata->Order);
 
-                if ($order) {
+                if ($order && !$order->getTransactionReference()) {
                     if ($order->getExternalPaymentRequested()) {
                         $order->completeOrder($paymentIntent->id);
                         $order->updateStatus(StoreOrderStatus::getStartingStatus()->getHandle());
