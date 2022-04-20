@@ -60,6 +60,8 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
         $this->set('stripeElementsLivePrivateApiKey', Config::get('community_store_stripe_elements.livePrivateApiKey'));
         $this->set('stripeElementsSigningSecretKey', Config::get('community_store_stripe_elements.signingSecretKey'));
         $this->set('stripeElementsTestSigningSecretKey', Config::get('community_store_stripe_elements.testSigningSecretKey'));
+        $this->set('stripeElementsMinimum', Config::get('community_store_stripe_elements.minimum'));
+        $this->set('stripeElementsMaximum', Config::get('community_store_stripe_elements.maximum'));
         $this->set('form', Application::getFacadeApplication()->make("helper/form"));
         $this->set('stripeElementsCurrencies', $this->getCurrencies());
     }
@@ -74,6 +76,8 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
         Config::save('community_store_stripe_elements.livePrivateApiKey', $data['stripeElementsLivePrivateApiKey']);
         Config::save('community_store_stripe_elements.signingSecretKey', $data['stripeElementsSigningSecretKey']);
         Config::save('community_store_stripe_elements.testSigningSecretKey', $data['stripeElementsTestSigningSecretKey']);
+        Config::save('community_store_stripe_elements.minimum', $data['stripeElementsMinimum']);
+        Config::save('community_store_stripe_elements.maximum', $data['stripeElementsMaximum']);
     }
 
     public function validate($args, $e)
@@ -150,8 +154,29 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
 
     public function getPaymentMinimum()
     {
-        return 0.5;
+        $defaultMin = 0.5;
+
+        $minconfig = trim(Config::get('community_store_stripe_elements.minimum'));
+
+        if ('' == $minconfig) {
+            return $defaultMin;
+        } else {
+            return max($minconfig, $defaultMin);
+        }
     }
+
+    public function getPaymentMaximum()
+    {
+        $defaultMax = 1000000000;
+
+        $maxconfig = trim(Config::get('community_store_stripe_elements.maximum'));
+        if ('' == $maxconfig) {
+            return $defaultMax;
+        } else {
+            return min($maxconfig, $defaultMax);
+        }
+    }
+
 
     public function getName()
     {
