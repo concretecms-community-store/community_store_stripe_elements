@@ -4,12 +4,12 @@ extract($vars);
 
 <div class="form-group">
     <?= $form->label('invoiceMinimum', t('Minimum Order Value'))?>
-    <?= $form->number("stripeElementsMinimum", $stripeElementsMinimum); ?>
+    <?= $form->number("stripeElementsMinimum", $stripeElementsMinimum, ['step'=>'0.01']); ?>
 </div>
 
 <div class="form-group">
     <?= $form->label('invoiceMaximum', t('Maximum Order Value'))?>
-    <?= $form->number("stripeElementsMaximum", $stripeElementsMaximum); ?>
+    <?= $form->number("stripeElementsMaximum", $stripeElementsMaximum, ['step'=>'0.01']); ?>
 </div>
 
 <div class="form-group">
