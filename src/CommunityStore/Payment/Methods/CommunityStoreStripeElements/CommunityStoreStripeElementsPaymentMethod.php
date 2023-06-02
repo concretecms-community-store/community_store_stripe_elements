@@ -97,59 +97,19 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
             $this->set('publicElementsAPIKey', Config::get('community_store_stripe_elements.testPublicApiKey'));
         }
 
+        $request = app()->make(\Concrete\Core\Http\Request::class);
+        $referrer = $request->server->get('HTTP_REFERER');
+        $c = \Concrete\Core\Page\Page::getByPath(parse_url($referrer, PHP_URL_PATH));
+        $al = \Concrete\Core\Multilingual\Page\Section\Section::getBySectionOfSite($c);
+        $langpath = '';
+        if ($al !== null) {
+            $langpath = $al->getCollectionHandle();
+        }
+        $returnUrl = \Concrete\Core\Support\Facade\Url::to($langpath . '/checkout/complete');
+        $this->set('returnUrl', $returnUrl);
+
         $pmID = StorePaymentMethod::getByHandle('community_store_stripe_elements')->getID();
         $this->set('pmID', $pmID);
-    }
-
-    public function submitPayment()
-    {
-        $app = \Concrete\Core\Support\Facade\Application::getFacadeApplication();
-        $request = $app->make(Request::class);
-        $stripeToken = $request->request->get('stripeToken');
-
-        $mode = Config::get('community_store_stripe_elements.mode');
-
-        if ($mode == 'live') {
-            $secretKey = Config::get('community_store_stripe_elements.livePrivateApiKey');
-        } else {
-            $secretKey = Config::get('community_store_stripe_elements.testPrivateApiKey');
-        }
-
-        $stripe = new \Stripe\StripeClient(
-            $secretKey
-        );
-
-        // check that payment intent ID is real
-        try {
-            $paymentIntent = $stripe->paymentIntents->retrieve(
-                $stripeToken,
-                []
-            );
-
-        } catch (\Exception $e) {
-
-        }
-
-        if ($paymentIntent && $paymentIntent->id) {
-
-            $orderID = Session::get('stripeOrderID');
-
-            if ($orderID) {
-                $order = Order::getByID($orderID);
-
-                if ($order && !$order->getTransactionReference()) {
-                    $order->completeOrder($stripeToken, true);
-                    $order->updateStatus(StoreOrderStatus::getStartingStatus()->getHandle());
-                    Session::remove('stripeOrderID');
-                    echo json_encode(['error'=>0, 'transactionReference'=> $stripeToken]);
-                    exit();
-                }
-            }
-        }
-
-        echo json_encode(['error'=>1, 'errorMessage'=>t('Invalid Transaction'), 'transactionReference'=> false]);
-        exit();
-
     }
 
     public function getPaymentMinimum()
@@ -222,7 +182,10 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
             'amount' => $price * $currencyMultiplier,
             'currency' => $currency,
             'receipt_email' =>  $customer->getEmail(),
-            'metadata' => [t('Phone')=> $customer->getValue('billing_phone'), 'Order' => $order->getOrderID()]
+            'metadata' => [t('Phone')=> $customer->getValue('billing_phone'), 'Order' => $order->getOrderID()],
+            'automatic_payment_methods' => [
+                'enabled' => 'true',
+            ],
         ]);
 
         $return = [
@@ -277,7 +240,6 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
             $signingSecretKey = Config::get('community_store_stripe_elements.testSigningSecretKey');
         }
 
-
         if ($secretKey && $signingSecretKey) {
             \Stripe\Stripe::setApiKey($secretKey);
 
@@ -324,7 +286,7 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
 
                 if ($order) {
                     $order->setRefunded(new \DateTime());
-                    $order->setRefundReason($session->refunds->data->reason);
+                    $order->setRefundReason(t('Refunded via Stripe Dashboard'));
                     $order->save();
                     $success = true;
                 }
@@ -343,6 +305,10 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
     public function isExternal()
     {
         return true;
+    }
+
+    public function headerScripts($view) {
+        $view->addHeaderItem('<script src="https://js.stripe.com/v3/" id="stripe-script"></script>');
     }
 }
 

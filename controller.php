@@ -10,14 +10,13 @@ class Controller extends Package
 {
     protected $pkgHandle = 'community_store_stripe_elements';
     protected $appVersionRequired = '8.0';
-    protected $pkgVersion = '1.0.1';
-    protected $packageDependencies = ['community_store'=>'2.0'];
+    protected $pkgVersion = '1.1';
+    protected $packageDependencies = ['community_store'=>'2.5'];
 
     public function on_start()
     {
         require __DIR__ . '/vendor/autoload.php';
         Route::register('/checkout/stripeelementscreatesession','\Concrete\Package\CommunityStoreStripeElements\Src\CommunityStore\Payment\Methods\CommunityStoreStripeElements\CommunityStoreStripeElementsPaymentMethod::createSession');
-        Route::register('/checkout/stripeelementscomplete','\Concrete\Package\CommunityStoreStripeElements\Src\CommunityStore\Payment\Methods\CommunityStoreStripeElements\CommunityStoreStripeElementsPaymentMethod::submitPayment');
         Route::register('/checkout/stripeelementsresponse','\Concrete\Package\CommunityStoreStripeElements\Src\CommunityStore\Payment\Methods\CommunityStoreStripeElements\CommunityStoreStripeElementsPaymentMethod::chargeResponse');
     }
 

@@ -5,7 +5,7 @@ extract($vars);
 <input type="hidden" value="" name="stripeToken" id="stripeToken"/>
 
 <div class="form-group">
-    <div id="card-element" class="form-control">
+    <div id="payment-element">
         <!-- A Stripe Element will be inserted here. -->
     </div>
 </div>
@@ -13,174 +13,134 @@ extract($vars);
 <br />
 
 <script>
+    var checkoutFormGroupPayment = document.getElementById('store-checkout-form-group-payment')
 
-    $(window).on('load', function () {
-        var stripe = null
-        var elements = null
-        var card = null
-        var clientSecret = '<?php echo $publicElementsAPIKey; ?>'
-        var button = $('#card-element').closest('.store-payment-method-container').find('.store-btn-complete-order')
-
-        let callback = function () {
-            let style = {
-                base: {
-                    fontSmoothing: 'antialiased',
-                    fontSize: '16px'
-                }
-            }
-
-            stripe = Stripe(clientSecret)
-
-            elements = stripe.elements()
-            card = elements.create('card', {style: style})
-            card.mount('#card-element')
-
-            // initially disable button, as will renable when card details entered and are valid
-
-            button.prop('disabled', true)
-            button.data('previous-label', button.val())
-
-            card.on('change', function (event) {
-
-                var displayError = document.getElementById('card-errors')
-
-                if (event.complete) {
-                    button.prop('disabled', false)
-                    button.val(button.data('previous-label'))
-                } else {
-                    button.prop('disabled', true)
-                }
-
-                if (event.error) {
-                    displayError.textContent = event.error.message
-                    button.val(button.data('previous-label'))
-                } else {
-                    displayError.textContent = ''
-                }
-
+    if (!checkoutFormGroupPayment.classList.contains('stripe-elements-init')) {
+        window.addEventListener('load', function () {
+            var $div = $("#store-checkout-form-group-payment");
+            var observer = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    var attributeValue = $(mutation.target).prop(mutation.attributeName);
+                    //alert("Class attribute changed to:", attributeValue);
+                });
             });
-        }
 
-        let URL = 'js.stripe.com/v3/'
-        let documentTag = document, tag = 'script'
-            object = documentTag.createElement(tag),
-            scriptTag = documentTag.getElementsByTagName(tag)[0]
-        object.src = '//' + URL
-        if (callback) {
-            object.addEventListener('load', function (e) {
-                callback(null, e)
-            }, false)
-        }
-        scriptTag.parentNode.insertBefore(object, scriptTag)
+            observer.observe($div[0], {
+                attributes: true,
+                attributeFilter: ['class']
+            });
 
-        $('.store-btn-complete-order').on('click', function (e) {
+            var stripe = null
+            var elements = null
+            var cardElement = null
+            var publicKey = '<?php echo $publicElementsAPIKey; ?>'
+            var button = $('#payment-element').closest('.store-payment-method-container').find('.store-btn-complete-order')
+            let paymentData = {};
+            let clientSecret = false;
 
-            // Open Checkout with further options
-            var currentpmid = $('input[name="payment-method"]:checked:first').data('payment-method-id');
+            $.ajax({
+                url: '<?= \URL::to('/checkout/stripeelementscreatesession'); ?>',
+                type: 'get',
+                cache: false,
+                dataType: 'json',
+                success: function (data) {
 
-            if (currentpmid === <?= $pmID; ?>) {
+                    clientSecret = data.client_secret;
+
+                    let form = $('#store-checkout-form-group-payment');
+                    paymentData = {
+                        payment_method: {
+
+                            billing_details: {
+                                address: {
+                                    city: data.billing_details.city,
+                                    country: data.billing_details.country,
+                                    line1: data.billing_details.line1,
+                                    line2: data.billing_details.line2,
+                                    postal_code: data.billing_details.postal_code,
+                                    state: data.billing_details.state
+                                },
+                                email: data.email,
+                                name: data.name,
+                                phone: data.phone
+                            },
+                        }
+                    }
+
+                    if (data.shipping_details) {
+
+                        paymentData.shipping = {
+                            name: data.shipping_details.name,
+                            address: {
+                                city: data.shipping_details.address.city,
+                                country: data.shipping_details.address.country,
+                                line1: data.shipping_details.address.line1,
+                                line2: data.shipping_details.address.line2,
+                                postal_code: data.shipping_details.address.postal_code,
+                                state: data.shipping_details.address.state
+                            }
+                        }
+                    }
+
+                    stripe = Stripe(publicKey)
+
+                    elements = stripe.elements({clientSecret: clientSecret})
+                    cardElement = elements.create('payment')
+                    cardElement.mount('#payment-element')
+
+                    // initially disable button, as will renable when card details entered and are valid
+                    button.prop('disabled', true)
+                    button.data('previous-label', button.val())
+
+                    cardElement.on('change', function (event) {
+
+                        var displayError = document.getElementById('card-errors')
+
+                        if (event.complete) {
+                            button.prop('disabled', false)
+                            button.val(button.data('previous-label'))
+                        } else {
+                            button.prop('disabled', true)
+                        }
+
+                        if (event.error) {
+                            displayError.textContent = event.error.message
+                            button.val(button.data('previous-label'))
+                        } else {
+                            displayError.textContent = ''
+                        }
+
+                    });
+                }
+            });
+
+            $("[data-payment-method-id='<?= $pmID; ?>'] .store-btn-complete-order").on('click', function (e) {
 
                 $(this).prop('disabled', true)
 
                 $(this).val('<?= t('Processing...'); ?>')
 
-                $.ajax({
-                    url: '<?= \URL::to('/checkout/stripeelementscreatesession'); ?>',
-                    type: 'get',
-                    cache: false,
-                    dataType: 'json',
-                    success: function (data) {
-
-                        let form = $('#store-checkout-form-group-payment');
-                        let paymentData = {
-                            payment_method: {
-                                card: card,
-                                billing_details: {
-                                    address: {
-                                        city: data.billing_details.city,
-                                        country: data.billing_details.country,
-                                        line1: data.billing_details.line1,
-                                        line2: data.billing_details.line2,
-                                        postal_code: data.billing_details.postal_code,
-                                        state: data.billing_details.state
-                                    },
-                                    email: data.email,
-                                    name: data.name,
-                                    phone: data.phone
-                                },
-                            }
+                stripe
+                    .confirmPayment({
+                        elements,
+                        confirmParams: {
+                            return_url: "<?= $returnUrl; ?>",
+                        },
+                    })
+                    .then(function (result) {
+                        if (result.error) {
+                            var errorElement = document.getElementById('card-errors')
+                            errorElement.textContent = result.error.message
+                            button.prop('disabled', false)
+                            button.val(button.data('previous-label'))
                         }
-
-                        if (data.shipping_details) {
-
-                            paymentData.shipping = {
-                                name: data.shipping_details.name,
-                                address: {
-                                    city: data.shipping_details.address.city,
-                                    country: data.shipping_details.address.country,
-                                    line1: data.shipping_details.address.line1,
-                                    line2: data.shipping_details.address.line2,
-                                    postal_code: data.shipping_details.address.postal_code,
-                                    state: data.shipping_details.address.state
-                                }
-                            }
-                        }
-
-
-                        stripe
-                            .confirmCardPayment(data.client_secret,
-                                paymentData
-                            )
-                            .then(function (result) {
-                                if (result.error) {
-                                    var errorElement = document.getElementById('card-errors')
-                                    errorElement.textContent = result.error.message
-                                    button.prop('disabled', false)
-                                    button.val(button.data('previous-label'))
-                                } else {
-                                    // The payment succeeded
-                                    var payment_intent_id = result.paymentIntent.id
-
-                                    $('#stripeToken').val(payment_intent_id)
-
-
-                                    $.ajax({
-                                        url: '<?= \URL::to('/checkout/stripeelementscomplete'); ?>',
-                                        type: 'post',
-                                        cache: false,
-                                        dataType: 'json',
-                                        data: 'stripeToken=' + payment_intent_id,
-                                        success: function (data) {
-
-                                            <?php
-                                            $app = \Concrete\Core\Support\Facade\Application::getFacadeApplication();
-                                            $request = $app->make(\Concrete\Core\Http\Request::class);
-                                            $referrer = $request->server->get('HTTP_REFERER');
-                                            $c = \Concrete\Core\Page\Page::getByPath(parse_url($referrer, PHP_URL_PATH));
-                                            $al = \Concrete\Core\Multilingual\Page\Section\Section::getBySectionOfSite($c);
-                                            $langpath = '';
-                                            if ($al !== null) {
-                                                $langpath = $al->getCollectionHandle();
-                                            }
-                                            $return = \Concrete\Core\Support\Facade\Url::to($langpath . '/checkout/complete');
-                                            ?>
-
-
-                                            if (data.error !== 1) {
-                                               window.location.href = '<?= $return; ?>';
-                                            }
-
-                                        }
-                                    });
-                                }
-                            });
-
-                    }
-                });
+                    });
 
                 e.preventDefault()
-            }
-        });
+            });
 
-    });
+        });
+        checkoutFormGroupPayment.classList.add('stripe-elements-init');
+    }
+
 </script>
