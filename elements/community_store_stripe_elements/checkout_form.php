@@ -17,6 +17,10 @@ extract($vars);
 
     if (!checkoutFormGroupPayment.classList.contains('stripe-elements-init')) {
         window.addEventListener('load', function () {
+
+            var paymentButton = $('#payment-element').closest('.store-payment-method-container').find('.store-btn-complete-order');
+            paymentButton.prop('disabled', true);
+
             var $div = $("#store-checkout-form-group-payment");
             var observer = new MutationObserver(function (mutations) {
                 mutations.forEach(function (mutation) {
@@ -34,7 +38,6 @@ extract($vars);
             var elements = null
             var cardElement = null
             var publicKey = '<?php echo $publicElementsAPIKey; ?>'
-            var button = $('#payment-element').closest('.store-payment-method-container').find('.store-btn-complete-order')
             let paymentData = {};
             let clientSecret = false;
 
@@ -88,24 +91,24 @@ extract($vars);
                     cardElement = elements.create('payment')
                     cardElement.mount('#payment-element')
 
-                    // initially disable button, as will renable when card details entered and are valid
-                    button.prop('disabled', true)
-                    button.data('previous-label', button.val())
+                    // initially disable button, as will re-enable when card details entered and are valid
+                    paymentButton.prop('disabled', true)
+                    paymentButton.data('previous-label', paymentButton.val())
 
                     cardElement.on('change', function (event) {
 
                         var displayError = document.getElementById('card-errors')
 
                         if (event.complete) {
-                            button.prop('disabled', false)
-                            button.val(button.data('previous-label'))
+                            paymentButton.prop('disabled', false)
+                            paymentButton.val(paymentButton.data('previous-label'))
                         } else {
-                            button.prop('disabled', true)
+                            paymentButton.prop('disabled', true)
                         }
 
                         if (event.error) {
                             displayError.textContent = event.error.message
-                            button.val(button.data('previous-label'))
+                            paymentButton.val(paymentButton.data('previous-label'))
                         } else {
                             displayError.textContent = ''
                         }
@@ -131,8 +134,8 @@ extract($vars);
                         if (result.error) {
                             var errorElement = document.getElementById('card-errors')
                             errorElement.textContent = result.error.message
-                            button.prop('disabled', false)
-                            button.val(button.data('previous-label'))
+                            paymentButton.prop('disabled', false)
+                            paymentButton.val(paymentButton.data('previous-label'))
                         }
                     });
 

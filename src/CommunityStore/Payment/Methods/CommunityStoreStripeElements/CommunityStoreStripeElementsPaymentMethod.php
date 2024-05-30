@@ -12,6 +12,7 @@ use Concrete\Package\CommunityStore\Src\CommunityStore\Utilities\Calculator as S
 use Concrete\Package\CommunityStore\Src\CommunityStore\Utilities\Price as StorePrice;;
 use Concrete\Package\CommunityStore\Src\CommunityStore\Payment\Method as StorePaymentMethod;
 use Concrete\Package\CommunityStore\Src\CommunityStore\Order\OrderStatus\OrderStatus as StoreOrderStatus;
+use Stripe\Exception\SignatureVerificationException;
 
 class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
 {
@@ -245,7 +246,6 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
 
             $payload = @file_get_contents('php://input');
             $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'];
-            $event = null;
 
             try {
                 $event = \Stripe\Webhook::constructEvent(
@@ -255,7 +255,7 @@ class CommunityStoreStripeElementsPaymentMethod extends StorePaymentMethod
                 // Invalid payload
                 http_response_code(400);
                 exit();
-            } catch (\Stripe\Error\SignatureVerification $e) {
+            } catch (SignatureVerificationException $e) {
                 // Invalid signature
                 http_response_code(400);
                 exit();
